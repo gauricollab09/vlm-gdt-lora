@@ -1,0 +1,68 @@
+# vlm-gdt-lora
+
+Can a 3B vision-language model learn to read engineering-drawing callouts as
+strict JSON after a few minutes of QLoRA on a free Colab T4?
+
+Two crop types, both with exact labels because the image and the label come
+from the same random draw:
+
+| kind | example crop | target JSON keys |
+|---|---|---|
+| `dimension` | `4x R205.38 ±0.02`, `⌀199 H7` | type, quantity, nominal, unit, upper, lower, fit |
+| `gdt` (feature control frame) | `◎ │ ⌀0.01(L) │ C(M) │ A(M)` | characteristic, symbol, tolerance, zone, material_modifier, datums |
+
+Crops are degraded at random (blur, 90/180/270° rotation, binarise, invert) so
+the task is not pure clean-text OCR.
+
+## Pipeline
+
+```
+gen_crops.py ──▶ out/{train,test}.jsonl + out/images/   (600 unique crops, 83/17 split)
+      │
+      ▼
+notebooks/qwen_vl_lora.ipynb  (Colab T4)
+      1. Qwen2.5-VL-3B-Instruct in 4-bit (Unsloth)
+      2. zero-shot on test  ──▶ preds_zeroshot.jsonl ──▶ eval_crops.py   ← "before"
+      3. LoRA r=16 on language layers, 1 epoch SFT
+      4. fine-tuned on test ──▶ preds_lora.jsonl     ──▶ eval_crops.py   ← "after"
+      5. save adapter lora_gdt_crops/
+```
+
+`eval_crops.py` reports JSON-valid rate, exact match, field-level
+precision / recall / F1 and hallucination rate (= 1 − precision), per kind.
+
+## Run it
+
+1. Push this repo to GitHub and put its URL in `tools/build_notebook.py`
+   (`REPO = ...`), then `python tools/build_notebook.py`.
+2. Open `notebooks/qwen_vl_lora.ipynb` in Colab, Runtime → T4 GPU, run top
+   to bottom. Data is generated on Colab (DejaVu font has the GD&T glyphs;
+   macOS does not ship it).
+3. Paste the two `eval_crops.py` tables into the Results section below.
+4. Download `lora_gdt_crops/` to Drive before the VM is recycled.
+
+Ablation worth one extra run: cell 5 with `finetune_vision_layers=True` —
+does the gain come from the LLM learning the output format, or from the
+vision encoder learning the glyphs?
+
+## Results
+
+*Not run yet.*
+
+| model | kind | n | json_ok | exact | prec | rec | f1 | halluc |
+|---|---|---|---|---|---|---|---|---|
+| zero-shot | all | 102 | – | – | – | – | – | – |
+| QLoRA (lang layers) | all | 102 | – | – | – | – | – | – |
+
+## Local dev
+
+```bash
+uv venv && uv pip install pillow pytest
+.venv/bin/python -m pytest        # checks the generator: unique crops, no train/test overlap
+```
+
+`colab_qwen_vl_lora.py` is the source of truth for the notebook (each `# %%`
+is a cell); regenerate the `.ipynb` with `tools/build_notebook.py` after
+editing it. The Unsloth vision API (`FastVisionModel`,
+`UnslothVisionDataCollator`) follows Unsloth's public notebooks as of 2025–26 —
+if a call errors, check https://unsloth.ai/docs for the current signature.

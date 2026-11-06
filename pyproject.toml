@@ -1,0 +1,13 @@
+[project]
+name = "vlm-gdt-lora"
+version = "0.1.0"
+description = "QLoRA fine-tune of Qwen2.5-VL-3B to read engineering-drawing callouts as JSON, on a free Colab T4"
+requires-python = ">=3.10"
+dependencies = [
+    "pillow",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+# unsloth / trl / peft / bitsandbytes are installed on Colab only (see
+# notebooks/qwen_vl_lora.ipynb); they are never a local dependency.

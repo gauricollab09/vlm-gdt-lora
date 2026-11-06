@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+.DS_Store
+
+# generated data and training artefacts — regenerate on Colab with gen_crops.py
+out/
+outputs/
+lora_gdt_crops/
+preds_*.jsonl
+
+# local-only notes
+*.local.md
+*.local.html
+.claude/
