@@ -33,11 +33,11 @@ precision / recall / F1 and hallucination rate (= 1 − precision), per kind.
 
 ## Run it
 
-1. Push this repo to GitHub and put its URL in `tools/build_notebook.py`
-   (`REPO = ...`), then `python tools/build_notebook.py`.
-2. Open `notebooks/qwen_vl_lora.ipynb` in Colab, Runtime → T4 GPU, run top
-   to bottom. Data is generated on Colab (DejaVu font has the GD&T glyphs;
-   macOS does not ship it).
+1. In Colab: File → Upload notebook → `notebooks/qwen_vl_lora.ipynb`. The
+   notebook is self-contained (it writes `gen_crops.py` and `eval_crops.py`
+   itself), so no clone or upload of anything else is needed.
+2. Runtime → Change runtime type → T4 GPU, then run top to bottom. Data is
+   generated on Colab (DejaVu font has the GD&T glyphs; macOS does not ship it).
 3. Paste the two `eval_crops.py` tables into the Results section below.
 4. Download `lora_gdt_crops/` to Drive before the VM is recycled.
 

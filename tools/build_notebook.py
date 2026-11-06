@@ -10,12 +10,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "colab_qwen_vl_lora.py"
 DST = ROOT / "notebooks" / "qwen_vl_lora.ipynb"
 
-REPO = "https://github.com/<your-user>/vlm-gdt-lora.git"  # edit after pushing
-
-SETUP = f'''# Colab T4: Runtime -> Change runtime type -> T4 GPU, then run top to bottom.
+SETUP = '''# Colab T4: Runtime -> Change runtime type -> T4 GPU, then run top to bottom.
+# Self-contained: the two helper scripts are written by the cells above, no repo clone needed.
 !nvidia-smi -L
-!git clone -q {REPO}
-%cd vlm-gdt-lora
 !pip install -q unsloth
 !pip install -q --no-deps trl peft accelerate bitsandbytes
 !python gen_crops.py --n 600 --out out
@@ -49,8 +46,10 @@ def py(s):
 
 def main():
     cells = cells_from_script(SRC.read_text(encoding="utf-8"))
-    cells.insert(1, md("## 1–2. setup: GPU, clone, install, generate data"))
-    cells.insert(2, py(SETUP))
+    helpers = [md("## 0. helper scripts (embedded so the notebook is self-contained)")]
+    for name in ("gen_crops.py", "eval_crops.py"):
+        helpers.append(py(f"%%writefile {name}\n" + (ROOT / name).read_text(encoding="utf-8")))
+    cells[1:1] = helpers + [md("## 1–2. setup: GPU, install, generate data"), py(SETUP)]
     nb = {"cells": cells, "metadata": {"accelerator": "GPU", "colab": {"provenance": []},
                                       "kernelspec": {"name": "python3", "display_name": "Python 3"},
                                       "language_info": {"name": "python"}},
