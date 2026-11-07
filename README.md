@@ -73,6 +73,13 @@ Run 1 (2026-11-07, Colab T4, data from the pre-vector-symbol generator, so
 | QLoRA (lang layers) | dimension | 57 | – | – | – | – | – | – |
 | QLoRA (lang layers) | gdt | 45 | – | – | – | – | – | – |
 
+Training (run 1): 498 examples, 1 epoch, 63 steps, total batch 8,
+**29.9M trainable of 3.78B parameters (0.79%)**, 5 min on a T4.
+
+| step | 5 | 10 | 15 | 20 | 25 | 30 | 35 | 40 | 45 | 50 | 55 | 60 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| loss | 4.56 | 2.36 | 0.81 | 0.20 | 0.10 | 0.10 | 0.05 | 0.05 | 0.06 | 0.05 | 0.05 | 0.04 |
+
 Reading the zero-shot row: the base model already emits valid JSON 99% of
 the time, so format is not the problem; it gets 0 of 102 crops fully right
 and only a third of dimension fields, and 78% of the fields it writes are
