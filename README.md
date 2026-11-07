@@ -64,28 +64,32 @@ vision encoder learning the glyphs?
 Run 1 (2026-11-07, Colab T4, data from the pre-vector-symbol generator, so
 8 of 14 GD&T symbols were tofu boxes in both train and test):
 
-| model | kind | n | json_ok | exact | prec | rec | f1 | halluc |
-|---|---|---|---|---|---|---|---|---|
-| zero-shot | all | 102 | 0.99 | 0.00 | 0.22 | 0.20 | 0.21 | 0.78 |
-| zero-shot | dimension | 57 | 1.00 | 0.00 | 0.34 | 0.33 | 0.33 | 0.66 |
-| zero-shot | gdt | 45 | 0.98 | 0.00 | 0.05 | 0.04 | 0.05 | 0.95 |
-| **QLoRA (lang layers)** | **all** | 102 | 1.00 | **0.29** | 0.74 | 0.74 | **0.74** | **0.26** |
-| QLoRA (lang layers) | dimension | 57 | 1.00 | 0.53 | 0.85 | 0.85 | 0.85 | 0.15 |
-| QLoRA (lang layers) | gdt | 45 | 1.00 | **0.00** | 0.60 | 0.58 | 0.59 | 0.40 |
+| model | kind | n | json_ok | F1 | halluc |
+|---|---|---|---|---|---|
+| zero-shot | all | 102 | 0.99 | 0.21 | 0.78 |
+| zero-shot | dimension | 57 | 1.00 | 0.33 | 0.66 |
+| zero-shot | gdt | 45 | 0.98 | 0.05 | 0.95 |
+| **QLoRA (lang layers)** | **all** | 102 | 1.00 | **0.74** | **0.26** |
+| QLoRA (lang layers) | dimension | 57 | 1.00 | 0.85 | 0.15 |
+| QLoRA (lang layers) | gdt | 45 | 1.00 | 0.59 | 0.40 |
 
-Run 1b (repeat of run 1, same data and notebook, for variance): all
-exact 0.31 / F1 0.74 / halluc 0.25; dimension 0.53 / 0.85; gdt exact 0.04 /
-F1 0.60. Training loss matched run 1 to the fourth decimal; differences are
-fp16 non-determinism flipping 2–3 borderline crops.
+`json_ok` = share of outputs that parse as JSON. `F1` = field-level F1 over
+(field, value) pairs. `halluc` = 1 − precision: the share of fields the
+model wrote that are not in the label.
+
+Run 1b (repeat of run 1, same data and notebook, for variance): all F1
+0.74 / halluc 0.25; dimension 0.85 / 0.15; gdt 0.60 / 0.39. Training loss
+matched run 1 to the fourth decimal; the differences are fp16
+non-determinism on a few borderline crops.
 
 Before → after, same 102 crops, only the 0.79% LoRA block changed:
-field F1 **0.21 → 0.74**, hallucination **0.78 → 0.26**, exact **0 → 29**
-crops. Dimensions are mostly solved (85% of fields, half the crops perfect).
-GD&T moved from 0.05 to 0.59 F1 but **not one GD&T crop is fully correct**:
-with 8 of 14 symbols rendered as identical tofu boxes, `characteristic` and
-`symbol` are unreadable from pixels, so every frame loses at least those two
-fields. That is the motivation for drawing the symbols as geometry (now in
-`gen_crops.py`); run 2 should move `gdt exact` off zero.
+field F1 **0.21 → 0.74**, hallucination **0.78 → 0.26**. Dimensions are
+mostly solved (85% of fields right, 15% hallucinated). GD&T moved from 0.05
+to 0.59 F1 but stalls there: with 8 of 14 symbols rendered as identical tofu
+boxes, `characteristic` and `symbol` are unreadable from pixels, so most
+frames lose those two of six fields. That is the motivation for drawing the
+symbols as geometry (now in `gen_crops.py`); run 2 should lift `gdt` F1
+toward the dimension row.
 
 Training (run 1): 498 examples, 1 epoch, 63 steps, total batch 8,
 **29.9M trainable of 3.78B parameters (0.79%)**, 5 min on a T4.
@@ -95,9 +99,8 @@ Training (run 1): 498 examples, 1 epoch, 63 steps, total batch 8,
 | loss | 4.56 | 2.36 | 0.81 | 0.20 | 0.10 | 0.10 | 0.05 | 0.05 | 0.06 | 0.05 | 0.05 | 0.04 |
 
 Reading the zero-shot row: the base model already emits valid JSON 99% of
-the time, so format is not the problem; it gets 0 of 102 crops fully right
-and only a third of dimension fields, and 78% of the fields it writes are
-not in the label. GD&T is near zero: it does not know the schema's vocabulary
+the time, so format is not the problem; it gets only a third of dimension
+fields right, and 78% of the fields it writes are not in the label. GD&T is near zero: it does not know the schema's vocabulary
 (`circular_runout`, `zone: width`, `C(M)`) and half the symbols were boxes.
 
 ## Local dev

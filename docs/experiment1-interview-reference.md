@@ -8,8 +8,8 @@ Say these four sentences in order; each later section backs one of them.
 
 1. **Data.** I built a synthetic engineering-drawing data engine: a generator draws dimension callouts and GD&T feature control frames from a random label, so every crop has an exact JSON label. 600 crops, deduped, 498 train / 102 held out.
 2. **Method.** QLoRA on Qwen2.5-VL-3B-Instruct on a free Colab T4: the vision encoder, projector and LLM frozen in 4-bit, rank-16 LoRA on every linear layer of the 36 decoder blocks (0.79% of parameters), one epoch of SFT with the loss on the answer tokens only.
-3. **Evaluation.** A field-level benchmark: parse the model's JSON, flatten to (field, value) pairs, report JSON-valid rate, exact match, precision, recall, F1 and hallucination (1 − precision), split by crop type, on the same 102 crops before and after. Field F1 went 0.21 → 0.74, hallucination 0.78 → 0.26, in 5 minutes of training.
-4. **Differently.** Error analysis showed GD&T exact match was zero because 8 of 14 symbols could not be rendered by any free font and all drew as the same box. I replaced font glyphs with drawn geometry, added a rendering test, and the rerun is next; then the vision-layer ablation, GRPO with the eval metric as reward, and real scanned pages.
+3. **Evaluation.** A field-level benchmark: parse the model's JSON, flatten to (field, value) pairs, report JSON-valid rate, field-level F1 and hallucination (1 − precision), split by crop type, on the same 102 crops before and after. Field F1 went 0.21 → 0.74, hallucination 0.78 → 0.26, in 5 minutes of training.
+4. **Differently.** Error analysis showed GD&T F1 stalled at 0.59 because 8 of 14 symbols could not be rendered by any free font and all drew as the same box. I replaced font glyphs with drawn geometry, added a rendering test, and the rerun is next; then the vision-layer ablation, GRPO with the eval metric as reward, and real scanned pages.
 
 ## Numbers to have cold
 
@@ -29,7 +29,6 @@ Say these four sentences in order; each later section backs one of them.
 | Training | 4.56 → 0.04 | loss at step 5 → step 60; plateau ~0.05 from step 35 |
 | Results | 0.21 → 0.74 | field F1, all 102 crops |
 | Results | 0.78 → 0.26 | hallucination rate |
-| Results | 0 → 29 | crops fully correct (53% of dimensions, 0% of gdt) |
 | Results | 0.99 → 1.00 | JSON-valid rate; format was never the problem |
 
 ## Data: synthetic crops with exact labels
@@ -64,33 +63,33 @@ Why those two rules (all linear layers, 10× LR): they are the findings of *LoRA
 
 Same 102 held-out crops, same prompt, greedy decoding, scored twice; the only thing that changed between the rows is the 0.79% LoRA block.
 
-| Model | Kind | n | json_ok | exact | prec | rec | F1 | halluc |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| zero-shot | all | 102 | 0.99 | 0.00 | 0.22 | 0.20 | 0.21 | 0.78 |
-| zero-shot | dimension | 57 | 1.00 | 0.00 | 0.34 | 0.33 | 0.33 | 0.66 |
-| zero-shot | gdt | 45 | 0.98 | 0.00 | 0.05 | 0.04 | 0.05 | 0.95 |
-| QLoRA | all | 102 | 1.00 | 0.29 | 0.74 | 0.74 | 0.74 | 0.26 |
-| QLoRA | dimension | 57 | 1.00 | 0.53 | 0.85 | 0.85 | 0.85 | 0.15 |
-| QLoRA | gdt | 45 | 1.00 | 0.00 | 0.60 | 0.58 | 0.59 | 0.40 |
+| Model | Kind | n | json_ok | F1 | halluc |
+| --- | --- | --- | --- | --- | --- |
+| zero-shot | all | 102 | 0.99 | 0.21 | 0.78 |
+| zero-shot | dimension | 57 | 1.00 | 0.33 | 0.66 |
+| zero-shot | gdt | 45 | 0.98 | 0.05 | 0.95 |
+| QLoRA | all | 102 | 1.00 | 0.74 | 0.26 |
+| QLoRA | dimension | 57 | 1.00 | 0.85 | 0.15 |
+| QLoRA | gdt | 45 | 1.00 | 0.59 | 0.40 |
 
-How a score is computed (`eval_crops.py`): take the first `{…}` in the model text, `json.loads` it, flatten both prediction and label to a set of (path, value) pairs with numbers normalised, then precision = |P ∩ G| / |P|, recall = |P ∩ G| / |G|, exact = (P == G), hallucination = 1 − precision. Unparseable output counts every label field as missed.
+How a score is computed (`eval_crops.py`): take the first `{…}` in the model text, `json.loads` it, flatten both prediction and label to a set of (path, value) pairs with numbers normalised, then F1 is the harmonic mean of precision (|P ∩ G| / |P|) and recall (|P ∩ G| / |G|), and hallucination = 1 − precision: the share of fields the model wrote that are not in the label. Unparseable output counts every label field as missed.
 
 - json_ok 0.99 → 1.00: the base already emits valid JSON; fine-tuning did not "teach JSON", it taught the schema and the reading.
 - Hallucination 0.78 → 0.26: before, three of four fields the model wrote were not in the label. This is the number a manufacturing engineer cares about.
-- Dimension exact 0.53: half the callouts perfectly read, including tolerances and ISO fits.
-- gdt exact 0.00 with F1 0.59: four of six fields right on every frame, never the same two. See the next section.
+- Dimension F1 0.85, hallucination 0.15: tolerances and ISO fits are read reliably.
+- gdt F1 0.59: about four of six fields right per frame, and inspection shows the same two (characteristic, symbol) are the ones missed. See the next section.
 
 **Say:** "I report per-field precision, recall, F1 and a hallucination rate, split by drawing type, on the same held-out crops before and after. Pooled F1 0.74 looked healthy; the per-kind split is what exposed the GD&T failure."
 
 ## The tofu bug: the error-analysis story
 
-GD&T exact match stayed at zero because 8 of the 14 characteristic symbols were rendered as the same empty font box, so the characteristic was not in the pixels.
+GD&T F1 stalled at 0.59 while dimensions reached 0.85, because 8 of the 14 characteristic symbols were rendered as the same empty font box, so the characteristic was not in the pixels.
 
-1. **Signal.** gdt F1 0.59 but exact 0.00 across 45 crops: the signature of "always wrong on the same two fields" (characteristic and symbol; 4 of 6 right ≈ 0.6).
+1. **Signal.** gdt F1 stuck near 0.6 while dimension F1 reached 0.85; four of six fields right is 0.67, and looking at predictions showed the misses were always characteristic and symbol.
 2. **Look at the data.** A contact sheet of inputs beside labels showed frames like `▯ | 0.1(L) | D | C` for perpendicularity, position, total runout alike.
 3. **Root cause.** The generator typed symbols as Unicode in DejaVu Sans. Checked with `fontTools`: DejaVu lacks 8 of 14; Noto Sans Math lacks 4; Noto Sans Symbols 2 lacks 12. No free font covers the set.
 4. **Fix.** Draw the 14 symbols as line geometry (circle, parallelogram, inverted T, arrows) in `draw_symbol`, the way CAD renders them; text cells keep a vendored DejaVu for ⌀ and ±.
-5. **Guard.** A test asserts all 14 render non-blank and pairwise distinct. Run 2 reuses the identical recipe on corrected data; `gdt exact` is the number to watch.
+5. **Guard.** A test asserts all 14 render non-blank and pairwise distinct. Run 2 reuses the identical recipe on corrected data; `gdt` F1 is the number to watch.
 
 **Say:** "Per-kind metrics flagged it, a contact sheet showed it, fontTools confirmed it, geometry fixed it, a test keeps it fixed. It was a data bug, not a model limit, and the metric design is what caught it."
 
@@ -100,10 +99,10 @@ In the order I would run them; each is one flag or one small addition to the exi
 
 | Next | Change | Question it answers | JD line |
 | --- | --- | --- | --- |
-| Run 2 | drawn symbols, same recipe | does gdt exact leave zero | systematic error analysis |
+| Run 2 | drawn symbols, same recipe | does gdt F1 rise toward the dimension row | systematic error analysis |
 | Run 3 | `finetune_vision_layers=True` | gain in the encoder or the LLM | vision encoder choices, PEFT vs full |
 | Run 4 | `load_in_4bit=False` | QLoRA vs 16-bit LoRA on my own benchmark | parameter-efficient vs full fine-tuning |
-| Run 5 | GRPO with `eval_crops.py` as reward | can a verifiable reward beat SFT on exact match | preference- or RL-based post-training |
+| Run 5 | GRPO with `eval_crops.py` as reward | can a verifiable reward beat SFT on field F1 | preference- or RL-based post-training |
 | Then | DPO on engineer corrections | fix systematic over/under-calls cheaply | engineer corrections as training data |
 | Then | per-field log-prob confidence + temperature scaling | route uncertain fields to review | calibrate model confidence |
 | Then | real scanned pages, full-page context, crop-then-read vs whole page | resolution/token cost trade-off | high-resolution, text-dense images |
@@ -119,7 +118,7 @@ Also worth saying: the free-tier constraint was a feature. It forced QLoRA, a ti
 - **Why 2e-4?** B starts at zero so the adapter's effect grows from nothing; empirically LoRA's best LR is about 10× full fine-tuning's, nearly independent of rank.
 - **Why mask the loss to the answer?** Prompt and image are given at inference; scoring them wastes gradient on text the model never produces and dilutes the JSON signal.
 - **Why one epoch?** Loss plateaued by step 35 of 63; the data is templated, so a second pass mostly memorises. The held-out set is the check.
-- **How do you know it is not memorising?** Test crops share no rendered text with training, nominal values are continuous, and 29 perfect crops on unseen numbers cannot come from lookup.
+- **How do you know it is not memorising?** Test crops share no rendered text with training, nominal values are continuous, and 85% field F1 on unseen numbers cannot come from lookup.
 - **Why not train the vision encoder?** The zero-shot model saw the glyphs but did not know the schema; that is the cheaper hypothesis, and the ablation measures it.
 - **How does backprop work through frozen 4-bit weights?** The gradient to a layer's input is Wᵀ times the output gradient, so frozen W is used in backward and dequantized again; no dL/dW is ever allocated, only dL/dA and dL/dB.
 - **What is "hallucination" here?** 1 − precision over flattened (field, value) pairs: the share of fields the model wrote that are not in the label. 78% → 26%.
