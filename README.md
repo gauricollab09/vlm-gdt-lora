@@ -61,12 +61,23 @@ vision encoder learning the glyphs?
 
 ## Results
 
-*Not run yet.*
+Run 1 (2026-11-07, Colab T4, data from the pre-vector-symbol generator, so
+8 of 14 GD&T symbols were tofu boxes in both train and test):
 
 | model | kind | n | json_ok | exact | prec | rec | f1 | halluc |
 |---|---|---|---|---|---|---|---|---|
-| zero-shot | all | 102 | – | – | – | – | – | – |
+| zero-shot | all | 102 | 0.99 | 0.00 | 0.22 | 0.20 | 0.21 | 0.78 |
+| zero-shot | dimension | 57 | 1.00 | 0.00 | 0.34 | 0.33 | 0.33 | 0.66 |
+| zero-shot | gdt | 45 | 0.98 | 0.00 | 0.05 | 0.04 | 0.05 | 0.95 |
 | QLoRA (lang layers) | all | 102 | – | – | – | – | – | – |
+| QLoRA (lang layers) | dimension | 57 | – | – | – | – | – | – |
+| QLoRA (lang layers) | gdt | 45 | – | – | – | – | – | – |
+
+Reading the zero-shot row: the base model already emits valid JSON 99% of
+the time, so format is not the problem; it gets 0 of 102 crops fully right
+and only a third of dimension fields, and 78% of the fields it writes are
+not in the label. GD&T is near zero: it does not know the schema's vocabulary
+(`circular_runout`, `zone: width`, `C(M)`) and half the symbols were boxes.
 
 ## Local dev
 
