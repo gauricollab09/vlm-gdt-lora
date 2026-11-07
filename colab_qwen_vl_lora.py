@@ -18,6 +18,8 @@ If a call errors, check https://unsloth.ai/docs for the current signature.
 import json, torch
 from unsloth import FastVisionModel
 from PIL import Image
+from transformers.utils import logging as hf_logging
+hf_logging.set_verbosity_error()   # hides the per-call "max_new_tokens and max_length both set" notice
 
 MODEL = "unsloth/Qwen2.5-VL-3B-Instruct"   # Unsloth mirror; fall back to "Qwen/Qwen2.5-VL-3B-Instruct"
 model, tokenizer = FastVisionModel.from_pretrained(
