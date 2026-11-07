@@ -14,6 +14,20 @@ from the same random draw:
 Crops are degraded at random (blur, 90/180/270° rotation, binarise, invert) so
 the task is not pure clean-text OCR.
 
+## What the data looks like
+
+`samples/contact_sheet.png` shows 14 crops next to their JSON labels, and
+`samples/gdt_symbols_legend.png` shows all 14 GD&T characteristic symbols as
+the generator draws them. Regenerate with `python tools/make_samples.py`.
+
+![dataset sample](samples/contact_sheet.png)
+
+The 14 GD&T symbols are drawn as line geometry (`draw_symbol` in
+`gen_crops.py`), not typed from a font: no free font covers all of them
+(DejaVu Sans is missing 8, Noto Sans Math 4), and the original generator
+silently rendered those as tofu boxes. Text cells use the vendored
+`assets/DejaVuSans.ttf`, which has `⌀` and `±`.
+
 ## Pipeline
 
 ```

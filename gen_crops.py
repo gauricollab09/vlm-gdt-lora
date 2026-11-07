@@ -33,7 +33,9 @@ _FONT_WARNED = False
 def load_font(size):
     # DejaVu has the GD&T glyphs; fall back to default if missing
     global _FONT_WARNED
-    for p in ["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",        # Debian/Ubuntu/Colab
+    here = os.path.dirname(os.path.abspath(__file__))
+    for p in [os.path.join(here, "assets", "DejaVuSans.ttf"),           # vendored copy, works everywhere
+              "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",        # Debian/Ubuntu/Colab
               "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
               "/opt/homebrew/share/fonts/DejaVuSans.ttf",               # macOS (brew install font-dejavu)
               os.path.expanduser("~/Library/Fonts/DejaVuSans.ttf"),
@@ -115,16 +117,67 @@ def render_text(txt, font):
     return img
 
 
+def draw_symbol(d, sym, x, y, s, lw=2):
+    """Draw a GD&T characteristic symbol as line geometry inside the s×s box at (x, y).
+
+    No free font covers all 14 ASME Y14.5 symbols (DejaVu lacks 8, Noto lacks 3), and
+    real drawings render them as CAD geometry anyway, so they are drawn here by hand.
+    """
+    def P(u, v):  # unit coords -> pixels
+        return (x + u * s, y + v * s)
+    L = lambda *pts: d.line([P(*p) for p in pts], fill="black", width=lw)
+    C = lambda u0, v0, u1, v1: d.ellipse([P(u0, v0), P(u1, v1)], outline="black", width=lw)
+    def arrow(u0, v0, u1, v1):
+        L((u0, v0), (u1, v1))
+        d.polygon([P(u1, v1), P(u1 - 0.22, v1 + 0.04), P(u1 - 0.04, v1 + 0.22)], fill="black")
+    if sym == GDT["flatness"][0]:            # parallelogram
+        L((0.12, 0.72), (0.38, 0.28), (0.88, 0.28), (0.62, 0.72), (0.12, 0.72))
+    elif sym == GDT["straightness"][0]:      # horizontal line
+        L((0.1, 0.5), (0.9, 0.5))
+    elif sym == GDT["circularity"][0]:
+        C(0.2, 0.2, 0.8, 0.8)
+    elif sym == GDT["cylindricity"][0]:      # circle between two tangent verticals
+        C(0.25, 0.25, 0.75, 0.75); L((0.12, 0.1), (0.12, 0.9)); L((0.88, 0.1), (0.88, 0.9))
+    elif sym == GDT["perpendicularity"][0]:  # inverted T
+        L((0.5, 0.15), (0.5, 0.8)); L((0.12, 0.8), (0.88, 0.8))
+    elif sym == GDT["parallelism"][0]:       # two slanted lines
+        L((0.25, 0.85), (0.55, 0.15)); L((0.5, 0.85), (0.8, 0.15))
+    elif sym == GDT["angularity"][0]:        # angle
+        L((0.88, 0.8), (0.12, 0.8), (0.75, 0.2))
+    elif sym == GDT["position"][0]:          # circle with crosshair
+        C(0.25, 0.25, 0.75, 0.75); L((0.5, 0.08), (0.5, 0.92)); L((0.08, 0.5), (0.92, 0.5))
+    elif sym == GDT["concentricity"][0]:     # two concentric circles
+        C(0.15, 0.15, 0.85, 0.85); C(0.33, 0.33, 0.67, 0.67)
+    elif sym == GDT["symmetry"][0]:          # three bars, middle longest
+        L((0.25, 0.3), (0.75, 0.3)); L((0.1, 0.5), (0.9, 0.5)); L((0.25, 0.7), (0.75, 0.7))
+    elif sym == GDT["profile_of_a_surface"][0]:  # closed half-disc
+        d.pieslice([P(0.15, 0.2), P(0.85, 0.9)], 180, 360, outline="black", width=lw)
+        L((0.15, 0.55), (0.85, 0.55))
+    elif sym == GDT["profile_of_a_line"][0]:     # open arc
+        d.arc([P(0.15, 0.25), P(0.85, 0.95)], 180, 360, fill="black", width=lw)
+    elif sym == GDT["circular_runout"][0]:       # one arrow at 45°
+        arrow(0.2, 0.8, 0.8, 0.2)
+    elif sym == GDT["total_runout"][0]:          # two arrows on a baseline
+        L((0.08, 0.85), (0.92, 0.85)); arrow(0.15, 0.85, 0.55, 0.2); arrow(0.5, 0.85, 0.9, 0.2)
+    else:
+        raise ValueError(f"unknown GD&T symbol {sym!r}")
+
+
 def render_fcf(cells, font):
     pad = 8
-    widths = [font.getbbox(c)[2] + 2 * pad for c in cells]
-    h = font.getbbox("Ag")[3] + 2 * pad
+    h_text = font.getbbox("Ag")[3]
+    sym_box = h_text  # symbol cell is square-ish, sized to the text height
+    widths = [sym_box + 2 * pad] + [font.getbbox(c)[2] + 2 * pad for c in cells[1:]]
+    h = h_text + 2 * pad
     img = Image.new("RGB", (sum(widths) + 2, h + 2), "white")
     d = ImageDraw.Draw(img)
     x = 1
-    for c, w in zip(cells, widths):
+    for i, (c, w) in enumerate(zip(cells, widths)):
         d.rectangle([x, 1, x + w, h], outline="black", width=2)
-        d.text((x + pad, pad // 2), c, fill="black", font=font)
+        if i == 0:
+            draw_symbol(d, c, x + pad, 1 + pad, sym_box, lw=max(2, h_text // 12))
+        else:
+            d.text((x + pad, pad // 2), c, fill="black", font=font)
         x += w
     return img
 
