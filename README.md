@@ -73,6 +73,11 @@ Run 1 (2026-11-07, Colab T4, data from the pre-vector-symbol generator, so
 | QLoRA (lang layers) | dimension | 57 | 1.00 | 0.53 | 0.85 | 0.85 | 0.85 | 0.15 |
 | QLoRA (lang layers) | gdt | 45 | 1.00 | **0.00** | 0.60 | 0.58 | 0.59 | 0.40 |
 
+Run 1b (repeat of run 1, same data and notebook, for variance): all
+exact 0.31 / F1 0.74 / halluc 0.25; dimension 0.53 / 0.85; gdt exact 0.04 /
+F1 0.60. Training loss matched run 1 to the fourth decimal; differences are
+fp16 non-determinism flipping 2–3 borderline crops.
+
 Before → after, same 102 crops, only the 0.79% LoRA block changed:
 field F1 **0.21 → 0.74**, hallucination **0.78 → 0.26**, exact **0 → 29**
 crops. Dimensions are mostly solved (85% of fields, half the crops perfect).
