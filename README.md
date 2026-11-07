@@ -37,7 +37,7 @@ gen_crops.py ──▶ out/{train,test}.jsonl + out/images/   (600 unique crops,
 notebooks/qwen_vl_lora.ipynb  (Colab T4)
       1. Qwen2.5-VL-3B-Instruct in 4-bit (Unsloth)
       2. zero-shot on test  ──▶ preds_zeroshot.jsonl ──▶ eval_crops.py   ← "before"
-      3. LoRA r=16 on language layers, 1 epoch SFT
+      3. QLoRA r=16 (4-bit base, adapters on language layers), 1 epoch SFT
       4. fine-tuned on test ──▶ preds_lora.jsonl     ──▶ eval_crops.py   ← "after"
       5. save adapter lora_gdt_crops/
 ```
