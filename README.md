@@ -69,9 +69,18 @@ Run 1 (2026-11-07, Colab T4, data from the pre-vector-symbol generator, so
 | zero-shot | all | 102 | 0.99 | 0.00 | 0.22 | 0.20 | 0.21 | 0.78 |
 | zero-shot | dimension | 57 | 1.00 | 0.00 | 0.34 | 0.33 | 0.33 | 0.66 |
 | zero-shot | gdt | 45 | 0.98 | 0.00 | 0.05 | 0.04 | 0.05 | 0.95 |
-| QLoRA (lang layers) | all | 102 | – | – | – | – | – | – |
-| QLoRA (lang layers) | dimension | 57 | – | – | – | – | – | – |
-| QLoRA (lang layers) | gdt | 45 | – | – | – | – | – | – |
+| **QLoRA (lang layers)** | **all** | 102 | 1.00 | **0.29** | 0.74 | 0.74 | **0.74** | **0.26** |
+| QLoRA (lang layers) | dimension | 57 | 1.00 | 0.53 | 0.85 | 0.85 | 0.85 | 0.15 |
+| QLoRA (lang layers) | gdt | 45 | 1.00 | **0.00** | 0.60 | 0.58 | 0.59 | 0.40 |
+
+Before → after, same 102 crops, only the 0.79% LoRA block changed:
+field F1 **0.21 → 0.74**, hallucination **0.78 → 0.26**, exact **0 → 29**
+crops. Dimensions are mostly solved (85% of fields, half the crops perfect).
+GD&T moved from 0.05 to 0.59 F1 but **not one GD&T crop is fully correct**:
+with 8 of 14 symbols rendered as identical tofu boxes, `characteristic` and
+`symbol` are unreadable from pixels, so every frame loses at least those two
+fields. That is the motivation for drawing the symbols as geometry (now in
+`gen_crops.py`); run 2 should move `gdt exact` off zero.
 
 Training (run 1): 498 examples, 1 epoch, 63 steps, total batch 8,
 **29.9M trainable of 3.78B parameters (0.79%)**, 5 min on a T4.
